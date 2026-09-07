@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>8たす? の たしざんゲーム</title>
+    <title>たしざんゲーム</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -16,17 +16,11 @@
         }
         .container {
             max-width: 600px;
-            margin: 0 auto;
+            margin: 20px auto 0 auto;
             background: white;
             padding: 30px 20px;
             border-radius: 20px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-        }
-        h1 {
-            color: #0284c7;
-            font-size: 24px;
-            margin-top: 0;
-            margin-bottom: 25px;
         }
         .frames-container {
             display: flex;
@@ -188,8 +182,6 @@
 
 <div class="container">
     <div id="game-zone">
-        <h1>8たす？の たしざんトレーニング</h1>
-        
         <div class="frames-container">
             <div class="frame-wrapper">
                 <div class="ten-frame" id="left-frame"></div>
@@ -345,12 +337,7 @@
         });
     }
 
-    async function playDotAnimation() {
-        renderLeftFrame();
-        renderRightFrame();
-
-        await new Promise(r => setTimeout(r, 60));
-
+    async function runMoveAnimation() {
         const moveCount = Math.min(2, currentRight);
         let promises = [];
 
@@ -381,7 +368,7 @@
             const allBtns = document.querySelectorAll('.btn');
             allBtns.forEach(btn => btn.disabled = true);
 
-            await playDotAnimation();
+            await runMoveAnimation();
             
             document.getElementById('next-btn').style.display = 'inline-block';
             document.getElementById('replay-btn').style.display = 'inline-block';
@@ -396,7 +383,15 @@
         if (isAnimating) return;
         isAnimating = true;
 
-        await playDotAnimation();
+        // 一旦、初期配置（左8個・右N個）に戻す
+        renderLeftFrame();
+        renderRightFrame();
+
+        // 1秒間静止
+        await new Promise(r => setTimeout(r, 1000));
+
+        // アニメーション実行
+        await runMoveAnimation();
 
         isAnimating = false;
     }
