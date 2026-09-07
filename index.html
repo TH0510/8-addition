@@ -1,4 +1,4 @@
-html_content = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -114,6 +114,13 @@ html_content = """<!DOCTYPE html>
             color: white !important;
             opacity: 0.6;
         }
+        .action-btns {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-top: 15px;
+        }
         .next-btn {
             display: none;
             background-color: #0284c7;
@@ -125,10 +132,25 @@ html_content = """<!DOCTYPE html>
             border-radius: 50px;
             cursor: pointer;
             box-shadow: 0 5px 15px rgba(2, 132, 199, 0.3);
-            margin-top: 15px;
             transition: all 0.2s;
         }
         .next-btn:active {
+            transform: scale(0.95);
+        }
+        .replay-btn {
+            display: none;
+            background-color: #64748b;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+        .replay-btn:active {
             transform: scale(0.95);
         }
         .certificate {
@@ -179,7 +201,11 @@ html_content = """<!DOCTYPE html>
 
         <div class="equation" id="equation-text">8 + 1 = ?</div>
         <div class="options" id="options-container"></div>
-        <button id="next-btn" class="next-btn" onclick="nextQuestion()">つぎへ ➔</button>
+        
+        <div class="action-btns">
+            <button id="next-btn" class="next-btn" onclick="nextQuestion()">つぎへ ➔</button>
+            <button id="replay-btn" class="replay-btn" onclick="replayAnimation()">もういちど 🔄</button>
+        </div>
     </div>
 
     <div id="cert-zone" class="certificate">
@@ -199,7 +225,7 @@ html_content = """<!DOCTYPE html>
     let currentRight = 0;
     let isAnimating = false;
 
-    // 下段(セル5,6,7,8,9) -> 上段(セル0,1,2,3,4) の順に球を配置する配列
+    // 下段(セル5,6,7,8,9) -> 上段(セル0,1,2,3,4) の順に球を配置する設定
     const fillOrder = [5, 6, 7, 8, 9, 0, 1, 2, 3, 4];
 
     function shuffle(array) {
@@ -223,6 +249,7 @@ html_content = """<!DOCTYPE html>
         currentRight = questions[currentIdx];
         document.getElementById('equation-text').innerText = `8 + ${currentRight} = ?`;
         document.getElementById('next-btn').style.display = 'none';
+        document.getElementById('replay-btn').style.display = 'none';
         
         renderLeftFrame();
         renderRightFrame();
@@ -238,7 +265,7 @@ html_content = """<!DOCTYPE html>
             cell.id = `left-cell-${i}`;
             frame.appendChild(cell);
         }
-        // 左フレームには8個の球を配置 (fillOrderの0〜7番目のセル：下段5個＋上段3個)
+        // 左フレームには8個の球を配置 (下段5個＋上段3個)
         for (let i = 0; i < 8; i++) {
             const cellId = fillOrder[i];
             const cell = document.getElementById(`left-cell-${cellId}`);
@@ -257,7 +284,7 @@ html_content = """<!DOCTYPE html>
             cell.id = `right-cell-${i}`;
             frame.appendChild(cell);
         }
-        // 右フレームには currentRight 個の球を配置 (fillOrderの順)
+        // 右フレームには currentRight 個の球を配置
         for (let i = 0; i < currentRight; i++) {
             const cellId = fillOrder[i];
             const cell = document.getElementById(`right-cell-${cellId}`);
@@ -275,7 +302,7 @@ html_content = """<!DOCTYPE html>
         const ans = 8 + currentRight;
         let choices = [ans];
         while (choices.length < 3) {
-            let fake = Math.floor(Math.random() * 9) + 9; // 9〜17
+            let fake = Math.floor(Math.random() * 9) + 9;
             if (!choices.includes(fake)) choices.push(fake);
         }
         shuffle(choices);
@@ -318,6 +345,30 @@ html_content = """<!DOCTYPE html>
         });
     }
 
+    async function playDotAnimation() {
+        renderLeftFrame();
+        renderRightFrame();
+
+        await new Promise(r => setTimeout(r, 60));
+
+        const moveCount = Math.min(2, currentRight);
+        let promises = [];
+
+        for (let i = 0; i < moveCount; i++) {
+            const dotIndex = currentRight - 1 - i;
+            const dot = document.getElementById(`right-dot-${dotIndex}`);
+            const targetCell = document.getElementById(`left-cell-${fillOrder[8 + i]}`);
+            
+            if (dot && targetCell) {
+                promises.push(animateSingleDot(dot, targetCell, i * 150));
+            }
+        }
+
+        if (promises.length > 0) {
+            await Promise.all(promises);
+        }
+    }
+
     async function checkAnswer(selected, clickedBtn) {
         if (isAnimating) return;
         const correctAns = 8 + currentRight;
@@ -327,41 +378,31 @@ html_content = """<!DOCTYPE html>
             clickedBtn.classList.add('correct-choice');
             document.getElementById('equation-text').innerText = `8 + ${currentRight} = ${correctAns}`;
             
-            // 選択肢ボタンの無効化
             const allBtns = document.querySelectorAll('.btn');
             allBtns.forEach(btn => btn.disabled = true);
 
-            // 左の空き枠は fillOrder[8] と fillOrder[9] (8個入っているので9個目と10個目の位置)
-            // 右から移動できる球の数は Math.min(2, currentRight)
-            const moveCount = Math.min(2, currentRight);
-            let promises = [];
-
-            for (let i = 0; i < moveCount; i++) {
-                // 右から取る球のインデックス（最後から取る）
-                const dotIndex = currentRight - 1 - i;
-                const dot = document.getElementById(`right-dot-${dotIndex}`);
-                // 左の空きセル（8番目、9番目）
-                const targetCell = document.getElementById(`left-cell-${fillOrder[8 + i]}`);
-                
-                if (dot && targetCell) {
-                    // 少しズラしてアニメーションさせることで2個がスムーズに飛ぶ
-                    promises.push(animateSingleDot(dot, targetCell, i * 150));
-                }
-            }
-
-            if (promises.length > 0) {
-                await Promise.all(promises);
-            }
+            await playDotAnimation();
             
-            // 「つぎへ」ボタンを表示
             document.getElementById('next-btn').style.display = 'inline-block';
+            document.getElementById('replay-btn').style.display = 'inline-block';
+            isAnimating = false;
         } else {
             clickedBtn.classList.add('wrong-choice');
             clickedBtn.disabled = true;
         }
     }
 
+    async function replayAnimation() {
+        if (isAnimating) return;
+        isAnimating = true;
+
+        await playDotAnimation();
+
+        isAnimating = false;
+    }
+
     function nextQuestion() {
+        if (isAnimating) return;
         currentIdx++;
         if (currentIdx < 9) {
             loadQuestion();
@@ -375,6 +416,3 @@ html_content = """<!DOCTYPE html>
 </script>
 </body>
 </html>
-"""
-
-print("HTML Length:", len(html_content))
